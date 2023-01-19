@@ -126,3 +126,242 @@ country_group2 = dataframe[labels == 2]
 country_group0.to_excel('country_group0.xlsx')
 country_group1.to_excel('country_group1.xlsx')
 country_group2.to_excel('country_group2.xlsx')
+# Data preparation for curve fitting
+def read_data(file_name, country, save_file):  # Defind a fuction to read the files
+    df = pd.read_csv(file_name, header = [3]) # To read the file
+    #df = df[df['Indicator Name'].isin([indicator])].reset_index(drop = True)  # To filter the data with required indicator
+    df = df[df['Country Name'].isin([country])].reset_index(drop = True)  # To filter the data with required country
+    df = df.T.reset_index(drop = False)  # To transpose the data
+    new_col1 = 'Year' 
+    new_col2 = df.iloc[2,1]
+    df.columns = [new_col1, new_col2]  # Set the columns name
+    df = df.iloc[4:,:].reset_index(drop = True)  # To remove unnecessary rows
+    df = df.dropna().reset_index(drop = True)  # To drop NaN values
+    df = df.astype(float)  # To convert the data into float
+    print(df)  # To print the data
+    df.to_excel(save_file)  # To save the file
+    return df
+
+df1 = read_data('Urban population (% of total population).csv', 'Iran, Islamic Rep.', 'df1.xlsx')  # To call the fuction & store in df1
+df2 = read_data('Labor force, total.csv', 'Iran, Islamic Rep.', 'df2.xlsx')  # To call the fuction & store in df2
+df3 = read_data('Urban population (% of total population).csv', 'Ireland', 'df3.xlsx')  # To call the fuction & store in df3
+df4 = read_data('Labor force, total.csv', 'Ireland', 'df4.xlsx')  # To call the fuction & store in df4
+df5 = read_data('Urban population (% of total population).csv', 'Egypt, Arab Rep.', 'df5.xlsx')  # To call the fuction & store in df3
+df6 = read_data('Labor force, total.csv', 'Egypt, Arab Rep.', 'df6.xlsx')  # To call the fuction & store in df4
+
+# Define the exponential function and the logistics functions for fitting
+def exp_growth(t, scale, growth):  # Define exponential growth function
+    f = scale * np.exp(growth * (t-1960)) 
+    return f
+       
+def logistics(t, scale, growth, t0):  # Define logistic function
+    f = scale / (1.0 + np.exp(-growth * (t - t0)))
+    return f
+
+def err_ranges(x, func, param, sigma):  # Define the function to calculates the upper and lower limits
+    import itertools as iter
+    
+    # initiate arrays for lower and upper limits
+    lower = func(x, *param)
+    upper = lower
+    
+    uplow = []   # list to hold upper and lower limits for parameters
+    for p,s in zip(param, sigma):
+        pmin = p - s
+        pmax = p + s
+        uplow.append((pmin, pmax))
+        
+    pmix = list(iter.product(*uplow))
+    
+    for p in pmix:
+        y = func(x, *p)
+        lower = np.minimum(lower, y)
+        upper = np.maximum(upper, y)
+        
+    return lower, upper 
+
+# Fit the logistic fuction for df1
+param, covar = opt.curve_fit(logistics, df1['Year'], df1['Urban population (% of total population)'], p0 = (2e9, 0.05, 1960.0), maxfev = 1000)
+df1['fit'] = logistics(df1['Year'], *param)
+
+sigma = np.sqrt(np.diag(covar))
+
+# Set upper and lower limit for df1
+low, up = err.err_ranges(df1["Year"], logistics, param, sigma)
+
+# Plot the graph with original data & logistic fuction data with lower & upper limit for df1
+plt.figure(dpi = 300)  # To create figure with required resolution 
+plt.plot(df1['Year'], df1['Urban population (% of total population)'], label = "Iran's urban population (%)") # To plot line graph with actual data
+plt.plot(df1['Year'], df1['fit'], label = 'fit')  # To plot the 
+plt.fill_between(df1['Year'], low, up, alpha = 0.7, color = 'green')
+plt.xlabel('Year', fontsize = 12)
+plt.ylabel("Iran's urban population (%)", fontsize = 12)
+plt.title("Iran's urban population (%) with logistic fuction", fontsize = 15)
+plt.legend()
+plt.show()
+
+# Forcast the Urban population for upcomming years with lower & upper limit for df1
+print("Forcasted Iran's urban population (%)")
+low, up = err.err_ranges(2030, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", round(mean, 3), "+/-", round(pm, 3))
+low, up = err.err_ranges(2040, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", round(mean, 3), "+/-", round(pm, 3))
+
+# Fit the logistic fuction for Total labor force for df2
+param, covar = opt.curve_fit(logistics, df2['Year'], df2['Labor force, total'], p0 = (2e9, 0.05, 1960.0), maxfev = 1000)
+df2['fit'] = logistics(df2['Year'], *param)
+
+sigma = np.sqrt(np.diag(covar))
+
+# Set upper and lower limit for df2
+low, up = err.err_ranges(df2["Year"], logistics, param, sigma)
+
+# Plot the graph with original data & logistic fuction data with lower & upper limit for df2
+plt.figure(dpi = 300)  # To create figure with required resolution 
+plt.plot(df2['Year'], df2['Labor force, total'], label = "Iran's total Labor force") # To plot line graph with actual data
+plt.plot(df2['Year'], df2['fit'], label = 'fit')  # To plot the 
+plt.fill_between(df2['Year'], low, up, alpha = 0.7, color = 'green')
+plt.xlabel('Year', fontsize = 12)
+plt.ylabel("Iran's total Labor force", fontsize = 12)
+plt.title("Iran's total Labor force with logistic fuction", fontsize = 15)
+plt.legend()
+plt.show()
+
+# Forcast the labor force for upcomming years with lower & upper limit for df2
+print("Forcasted Iran's total Labor force")
+low, up = err.err_ranges(2030, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", round(mean, 3), "+/-", round(pm, 3))
+low, up = err.err_ranges(2040, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", round(mean, 3), "+/-", round(pm, 3))
+
+# Fit the logistic fuction for df3
+param, covar = opt.curve_fit(logistics, df3['Year'], df3['Urban population (% of total population)'], p0 = (2e9, 0.05, 1960.0), maxfev = 1000)
+df3['fit'] = logistics(df3['Year'], *param)
+
+sigma = np.sqrt(np.diag(covar))
+
+# Set upper and lower limit for df3
+low, up = err.err_ranges(df3["Year"], logistics, param, sigma)
+
+# Plot the graph with original data & logistic fuction data with lower & upper limit for df3
+plt.figure(dpi = 300)  # To create figure with required resolution 
+plt.plot(df3['Year'], df3['Urban population (% of total population)'], label = "Ireland's urban population (%)") # To plot line graph with actual data
+plt.plot(df3['Year'], df3['fit'], label = 'fit')  # To plot the 
+plt.fill_between(df3['Year'], low, up, alpha = 0.7, color = 'red')
+plt.xlabel('Year', fontsize = 12)
+plt.ylabel("Ireland's urban population (%)", fontsize = 12)
+plt.title("Ireland's urban population (%) with logistic fuction", fontsize = 15)
+plt.legend()
+plt.show()
+
+# Forcast the Urban population for upcomming years with lower & upper limit for df3
+print("Forcasted Ireland's urban population (%)")
+low, up = err.err_ranges(2030, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", round(mean, 3), "+/-", round(pm, 3))
+low, up = err.err_ranges(2040, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", round(mean, 3), "+/-", round(pm, 3))
+
+# Fit the logistic fuction for Total labor force for df4
+param, covar = opt.curve_fit(logistics, df4['Year'], df4['Labor force, total'], p0 = (2e9, 0.05, 1960.0), maxfev = 1000)
+df4['fit'] = logistics(df4['Year'], *param)
+
+sigma = np.sqrt(np.diag(covar))
+
+# Set upper and lower limit for df4
+low, up = err.err_ranges(df4["Year"], logistics, param, sigma)
+
+# Plot the graph with original data & logistic fuction data with lower & upper limit for df4
+plt.figure(dpi = 300)  # To create figure with required resolution 
+plt.plot(df4['Year'], df4['Labor force, total'], label = "Ireland's total Labor force") # To plot line graph with actual data
+plt.plot(df4['Year'], df4['fit'], label = 'fit')  # To plot the 
+plt.fill_between(df4['Year'], low, up, alpha = 0.7, color = 'red')
+plt.xlabel('Year', fontsize = 12)
+plt.ylabel("Ireland's total Labor force", fontsize = 12)
+plt.title("Ireland's total Labor force with logistic fuction", fontsize = 15)
+plt.legend()
+plt.show()
+
+# Forcast the labor force for upcomming years with lower & upper limit for df4
+print("Forcasted Ireland's total Labor force")
+low, up = err.err_ranges(2030, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", round(mean, 3), "+/-", round(pm, 3))
+low, up = err.err_ranges(2040, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", round(mean, 3), "+/-", round(pm, 3))
+
+# Fit the logistic fuction for df5
+param, covar = opt.curve_fit(logistics, df5['Year'], df5['Urban population (% of total population)'], p0 = (2e9, 0.05, 1960.0), maxfev = 1000)
+df5['fit'] = logistics(df5['Year'], *param)
+
+sigma = np.sqrt(np.diag(covar))
+
+# Set upper and lower limit for df5
+low, up = err.err_ranges(df5["Year"], logistics, param, sigma)
+
+# Plot the graph with original data & logistic fuction data with lower & upper limit for df5
+plt.figure(dpi = 300)  # To create figure with required resolution 
+plt.plot(df5['Year'], df5['Urban population (% of total population)'], label = "Egypt's urban population (%)") # To plot line graph with actual data
+plt.plot(df5['Year'], df5['fit'], label = 'fit')  # To plot the 
+plt.fill_between(df5['Year'], low, up, alpha = 0.7, color = 'yellow')
+plt.xlabel('Year', fontsize = 12)
+plt.ylabel("Egypt's urban population (%)", fontsize = 12)
+plt.title("Egypt's urban population (%) with logistic fuction", fontsize = 15)
+plt.legend()
+plt.show()
+
+# Forcast the Urban population for upcomming years with lower & upper limit for df5
+print("Forcasted Egypt's urban population (%)")
+low, up = err.err_ranges(2030, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", round(mean, 3), "+/-", round(pm, 3))
+low, up = err.err_ranges(2040, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", round(mean, 3), "+/-", round(pm, 3))
+
+# Fit the logistic fuction for Total labor force for df6
+param, covar = opt.curve_fit(logistics, df6['Year'], df6['Labor force, total'], p0 = (2e9, 0.05, 1960.0), maxfev = 1000)
+df6['fit'] = logistics(df6['Year'], *param)
+
+sigma = np.sqrt(np.diag(covar))
+
+# Set upper and lower limit for df6
+low, up = err.err_ranges(df6["Year"], logistics, param, sigma)
+
+# Plot the graph with original data & logistic fuction data with lower & upper limit for df6
+plt.figure(dpi = 300)  # To create figure with required resolution 
+plt.plot(df6['Year'], df6['Labor force, total'], label = "Egypt's total Labor force") # To plot line graph with actual data
+plt.plot(df6['Year'], df6['fit'], label = 'fit')  # To plot the 
+plt.fill_between(df6['Year'], low, up, alpha = 0.7, color = 'yellow')
+plt.xlabel('Year', fontsize = 12)
+plt.ylabel("Egypt's total Labor force", fontsize = 12)
+plt.title("Egypt's total Labor force with logistic fuction", fontsize = 15)
+plt.legend()
+plt.show()
+
+# Forcast the labor force for upcomming years with lower & upper limit for df6
+print("Forcasted Egypt's total Labor force")
+low, up = err.err_ranges(2030, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2030:", round(mean, 3), "+/-", round(pm, 3))
+low, up = err.err_ranges(2040, logistics, param, sigma)
+mean = (up+low) / 2.0
+pm = (up-low) / 2.0
+print("2040:", round(mean, 3), "+/-", round(pm, 3))
